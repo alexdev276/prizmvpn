@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Личный кабинет{% endblock %}
+{% block body %}
+  <div class="top-line"></div>
+  <main class="prizm-main narrow">
+    <section class="balance-block">
+      <p class="balance-label">Баланс</p>
+      <p class="balance-value">{{ balance }}</p>
+    </section>
+
+    {% if error %}
+      <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <div class="dashboard-layout">
+      <section>
+        <div class="action-grid">
+          <a class="button big" href="/dashboard/top-up"><span class="plus-icon">+</span>Пополнить</a>
+          <a class="button big" href="/dashboard/history">История</a>
+        </div>
+
+        <section class="devices-section">
+          <div class="section-title-row">
+            <h1 class="section-title">Устройства</h1>
+            <a class="button" href="/dashboard?modal=add">Добавить</a>
+          </div>
+          <p class="section-subtitle">Тариф: {{ device_price }}/устройство</p>
+
+          <div class="device-list">
+            {% for view in devices %}
+              <article class="device-card">
+                <p class="device-id">ID: {{ view.device.public_id }}</p>
+                <p class="device-name">{{ view.device.title }}</p>
+                <div class="device-actions">
+                  <a class="button" href="/dashboard?device_id={{ view.device.id }}">Настройки</a>
+                  <form method="post" action="/dashboard/devices/{{ view.device.id }}/delete">
+                    <button type="submit" {% if not view.can_delete %}title="Удаление будет доступно через 24 часа после добавления"{% endif %}>Удалить</button>
+                  </form>
+                </div>
+              </article>
+            {% else %}
+              <article class="device-card">
+                <p class="device-id">Устройств пока нет</p>
+                <p class="device-name">Добавьте первое</p>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      </section>
+
+      <section class="instructions">
+        <p class="instructions-title">Инструкции</p>
+        <div class="instruction-grid">
+          <a class="button" href="/instructions/iphone">IPhone</a>
+          <a class="button" href="/instructions/android">Android</a>
+          <a class="button" href="/instructions/macos">MacOS</a>
+          <a class="button" href="/instructions/windows">Windows</a>
+        </div>
+        <a class="button support-link" href="https://example.com">Поддержка</a>
+      </section>
+    </div>
+  </main>
+
+  {% if modal == "add" %}
+    <div class="modal-backdrop">
+      <section class="modal-panel">
+        <h2>Добавление устройства</h2>
+        <p class="modal-text">Стоимость 100 Р/мес за каждое дополнительное устройство. Вы сможете удалить это устройство через 24 часа.</p>
+        <form class="modal-actions" method="post" action="/dashboard/devices">
+          <button class="primary full" type="submit">Добавить</button>
+          <a class="button full" href="/dashboard">Назад</a>
+        </form>
+      </section>
+    </div>
+  {% endif %}
+
+  {% if selected_device %}
+    <div class="modal-backdrop">
+      <section class="modal-panel">
+        <h2>Настройки устройства</h2>
+        <p class="device-id">ID: {{ selected_device.device.public_id }}</p>
+        <p class="device-name">{{ selected_device.device.title }}</p>
+        <p class="config-text">{{ selected_device.config_link }}</p>
+        <div class="modal-actions">
+          <form method="post" action="/dashboard/devices/{{ selected_device.device.id }}/replace">
+            <button class="full" type="submit">Заменить настройки устройства</button>
+          </form>
+          <a class="button primary full" href="/dashboard">Назад</a>
+        </div>
+      </section>
+    </div>
+  {% endif %}
+{% endblock %}
+

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Вход{% endblock %}
+{% block body %}
+  <div class="top-line"></div>
+  <main class="auth-shell narrow">
+    <section class="auth-panel">
+      <h1>Вход</h1>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <form method="post" action="/login">
+        <div class="field">
+          <label for="email">Ваш email:</label>
+          <input id="email" name="email" type="email" value="{{ email or '' }}" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="password">Ваш пароль:</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="primary full auth-submit" type="submit">Вход</button>
+      </form>
+      <p class="auth-switch">Нет аккаунта? <a href="/register">Регистрация</a></p>
+      <p class="auth-switch"><a href="/forgot-password">Забыли пароль?</a></p>
+    </section>
+    <a class="button support-link" href="https://example.com">Поддержка</a>
+  </main>
+{% endblock %}
+

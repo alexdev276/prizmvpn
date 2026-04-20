@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Пополнение баланса{% endblock %}
+{% block body %}
+  <div class="top-line"></div>
+  <main class="prizm-main narrow">
+    <section class="balance-block">
+      <p class="balance-label">Баланс</p>
+      <p class="balance-value">{{ balance }}</p>
+    </section>
+
+    <h1 class="topup-title">Пополнение баланса</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form class="topup-form" method="post">
+      <div class="field">
+        <label for="amount">Введите сумму:</label>
+        <input id="amount" name="amount" value="{{ amount }}₽" inputmode="decimal" autocomplete="off" required>
+      </div>
+      <div class="pay-buttons">
+        <button class="pay-button danger" formmethod="post" formaction="/payments/cryptocloud/top-up" type="submit">
+          <strong>Пополнить в USDT TRC20</strong>
+          <small>Минимальная сумма пополнения {{ min_usdt }}Р</small>
+        </button>
+        <button class="pay-button" formmethod="post" formaction="/payments/yookassa/top-up" type="submit">
+          <strong>Пополнить в рублях</strong>
+          <small>Минимальная сумма пополнения {{ min_rub }}Р</small>
+        </button>
+      </div>
+    </form>
+    <a class="button support-link" href="https://example.com">Поддержка</a>
+  </main>
+{% endblock %}
+

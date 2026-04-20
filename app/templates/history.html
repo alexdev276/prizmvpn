@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}История пополнений{% endblock %}
+{% block body %}
+  <div class="top-line"></div>
+  <main class="prizm-main narrow">
+    <section class="balance-block">
+      <p class="balance-label">Баланс</p>
+      <p class="balance-value">{{ balance }}</p>
+    </section>
+
+    <h1 class="history-title">История пополнений</h1>
+    <section class="history-list">
+      {% for transaction in transactions %}
+        <div class="history-row">
+          <span>{{ transaction.description }}</span>
+          <span>{{ format_rub(transaction.amount_microrub, signed=True) }}</span>
+        </div>
+      {% else %}
+        <div class="history-row">
+          <span>Движений по счету пока нет</span>
+          <span>0Р</span>
+        </div>
+      {% endfor %}
+    </section>
+    <a class="button support-link" href="https://example.com">Поддержка</a>
+  </main>
+{% endblock %}
+

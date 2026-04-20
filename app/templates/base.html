@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Prizm VPN{% endblock %}</title>
+    <link rel="stylesheet" href="{{ request.url_for('static', path='css/app.css') }}">
+    {% block head %}{% endblock %}
+  </head>
+  <body class="{% block body_class %}prizm-page{% endblock %}">
+    {% block header %}
+      <header class="prizm-header">
+        <a class="prizm-logo" href="/">
+          <span class="logo-mark" aria-hidden="true"></span>
+          <span>PRIZM</span>
+        </a>
+      </header>
+    {% endblock %}
+    {% block body %}{% endblock %}
+  </body>
+</html>

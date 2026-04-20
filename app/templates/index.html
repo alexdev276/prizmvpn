@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Prizm VPN{% endblock %}
+{% block header %}
+  <header class="prizm-header header-split">
+    <a class="prizm-logo" href="/">
+      <span class="logo-mark" aria-hidden="true"></span>
+      <span>PRIZM</span>
+    </a>
+    <a class="button" href="/dashboard">Личный кабинет</a>
+  </header>
+{% endblock %}
+{% block body %}
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <h1>VPN-доступ без лишних шагов</h1>
+        <p class="lead">Личный кабинет, VLESS-конфигурация, оплата в рублях или криптовалюте и управление подпиской в одном месте.</p>
+        <div class="actions">
+          <a class="button accent" href="/register">Создать аккаунт</a>
+          <a class="button secondary" href="/login">У меня уже есть доступ</a>
+        </div>
+      </div>
+      <div class="screen-strip" aria-label="Макеты интерфейса">
+        {% for screen in screens %}
+          <img class="phone-screen" src="{{ request.url_for('static', path=screen) }}" alt="Экран Prizm {{ loop.index }}">
+        {% endfor %}
+      </div>
+    </section>
+  </main>
+{% endblock %}

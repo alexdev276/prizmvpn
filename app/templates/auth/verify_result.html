@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Подтверждение email{% endblock %}
+{% block body %}
+  <main class="auth-shell">
+    <section class="panel">
+      <h1>{% if ok %}Готово{% else %}Ссылка не сработала{% endif %}</h1>
+      <p class="{% if ok %}notice{% else %}error{% endif %}">{{ message }}</p>
+      <p><a class="button" href="/login">Войти</a></p>
+    </section>
+  </main>
+{% endblock %}
+
