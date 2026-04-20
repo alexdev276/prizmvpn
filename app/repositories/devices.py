@@ -60,6 +60,11 @@ class DeviceRepository:
         title: str,
         config_uuid: str,
         locked_until,
+        remnawave_uuid: str | None = None,
+        remnawave_username: str | None = None,
+        remnawave_subscription_url: str | None = None,
+        remnawave_raw: dict | None = None,
+        traffic_limit_bytes: int = 0,
     ) -> Device:
         now = utcnow()
         device = Device(
@@ -67,6 +72,11 @@ class DeviceRepository:
             public_id=public_id,
             title=title,
             config_uuid=config_uuid,
+            remnawave_uuid=remnawave_uuid,
+            remnawave_username=remnawave_username,
+            remnawave_subscription_url=remnawave_subscription_url,
+            remnawave_raw=remnawave_raw,
+            traffic_limit_bytes=traffic_limit_bytes,
             locked_until=locked_until,
             last_billed_at=now,
         )
@@ -76,6 +86,35 @@ class DeviceRepository:
 
     async def update_config(self, device: Device, config_uuid: str) -> Device:
         device.config_uuid = config_uuid
+        await self.session.flush()
+        return device
+
+    async def attach_remnawave_user(
+        self,
+        device: Device,
+        *,
+        remnawave_uuid: str,
+        remnawave_username: str,
+        remnawave_subscription_url: str | None,
+        remnawave_raw: dict | None,
+        traffic_limit_bytes: int,
+    ) -> Device:
+        device.remnawave_uuid = remnawave_uuid
+        device.remnawave_username = remnawave_username
+        device.remnawave_subscription_url = remnawave_subscription_url
+        device.remnawave_raw = remnawave_raw
+        device.traffic_used = 0
+        device.traffic_limit_bytes = traffic_limit_bytes
+        await self.session.flush()
+        return device
+
+    async def set_traffic_used(self, device: Device, traffic_used: int) -> Device:
+        device.traffic_used = traffic_used
+        await self.session.flush()
+        return device
+
+    async def set_traffic_limit(self, device: Device, traffic_limit_bytes: int) -> Device:
+        device.traffic_limit_bytes = traffic_limit_bytes
         await self.session.flush()
         return device
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import secrets
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
-from urllib.parse import quote
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.repositories.devices import DeviceRepository
 from app.repositories.transactions import TransactionRepository
 from app.repositories.users import UserRepository
 from app.services.money import DEVICE_HOURLY_PRICE_MICRORUB, DEVICE_MONTHLY_PRICE_RUB
+from app.services.remnawave import RemnawaveClient, RemnawaveError
 
 
 class AccountError(ValueError):
@@ -29,9 +30,10 @@ class DeviceView:
 
 
 class AccountService:
-    def __init__(self, session: AsyncSession, settings: Settings) -> None:
+    def __init__(self, session: AsyncSession, settings: Settings, remnawave_client: RemnawaveClient) -> None:
         self.session = session
         self.settings = settings
+        self.remnawave_client = remnawave_client
         self.users = UserRepository(session)
         self.devices = DeviceRepository(session)
         self.transactions = TransactionRepository(session)
@@ -62,6 +64,33 @@ class AccountService:
             await self.session.commit()
         return total_charged
 
+    async def refresh_device_usage(self, user: User) -> None:
+        total_used = 0
+        total_limit = 0
+        changed = False
+        for device in await self.devices.list_active_for_user(user.id):
+            if device.remnawave_uuid:
+                try:
+                    usage = await self.remnawave_client.get_user_usage(device.remnawave_uuid)
+                    traffic_used = int(usage.get("trafficUsedBytes") or usage.get("usedTrafficBytes") or device.traffic_used)
+                    if traffic_used != device.traffic_used:
+                        await self.devices.set_traffic_used(device, traffic_used)
+                        changed = True
+                except (RemnawaveError, ValueError):
+                    pass
+            total_used += device.traffic_used
+            total_limit += device.traffic_limit_bytes
+
+        if user.traffic_used != total_used:
+            await self.users.set_traffic_used(user, total_used)
+            changed = True
+        if user.traffic_limit_bytes != total_limit:
+            user.traffic_limit_bytes = total_limit
+            user.updated_at = utcnow()
+            changed = True
+        if changed:
+            await self.session.commit()
+
     async def list_device_views(self, user: User) -> list[DeviceView]:
         now = utcnow()
         devices = await self.devices.list_active_for_user(user.id)
@@ -79,12 +108,18 @@ class AccountService:
         if len(title) > 120:
             raise AccountError("Название устройства слишком длинное.")
         public_id = await self._generate_public_id()
+        remna_user = await self._create_remnawave_device_user(user, public_id)
         device = await self.devices.create(
             user_id=user.id,
             public_id=public_id,
             title=title,
             config_uuid=str(uuid.uuid4()),
             locked_until=utcnow() + timedelta(hours=24),
+            remnawave_uuid=remna_user.uuid,
+            remnawave_username=remna_user.username,
+            remnawave_subscription_url=remna_user.subscription_url,
+            remnawave_raw=remna_user.raw,
+            traffic_limit_bytes=self.settings.REMNA_TRAFFIC_LIMIT_BYTES,
         )
         await self.transactions.create(
             user_id=user.id,
@@ -103,6 +138,11 @@ class AccountService:
             raise AccountError("Устройство не найдено.")
         if as_utc(device.locked_until) > utcnow():
             raise AccountError("Это устройство можно удалить только через 24 часа после добавления.")
+        if device.remnawave_uuid:
+            try:
+                await self.remnawave_client.disable_user(device.remnawave_uuid)
+            except RemnawaveError:
+                pass
         await self.devices.soft_delete(device)
         await self.transactions.create(
             user_id=user.id,
@@ -118,7 +158,22 @@ class AccountService:
         device = await self.devices.get_for_user(user.id, device_id)
         if not device:
             raise AccountError("Устройство не найдено.")
+        old_remnawave_uuid = device.remnawave_uuid
+        remna_user = await self._create_remnawave_device_user(user, device.public_id)
+        if old_remnawave_uuid:
+            try:
+                await self.remnawave_client.disable_user(old_remnawave_uuid)
+            except RemnawaveError:
+                pass
         await self.devices.update_config(device, str(uuid.uuid4()))
+        await self.devices.attach_remnawave_user(
+            device,
+            remnawave_uuid=remna_user.uuid,
+            remnawave_username=remna_user.username,
+            remnawave_subscription_url=remna_user.subscription_url,
+            remnawave_raw=remna_user.raw,
+            traffic_limit_bytes=self.settings.REMNA_TRAFFIC_LIMIT_BYTES,
+        )
         await self.transactions.create(
             user_id=user.id,
             device_id=device.id,
@@ -136,9 +191,13 @@ class AccountService:
     def config_link(self, device: Device) -> str:
         return f"{self.settings.BASE_URL.rstrip('/')}/subscription/{device.public_id}/{device.config_uuid}.txt"
 
-    def render_vless_config(self, device: Device) -> str:
-        tag = quote(f"{device.title}-{device.public_id}")
-        return f"vless://{device.config_uuid}@example.com:443?type=tcp&security=tls#{tag}"
+    async def render_device_config(self, device: Device) -> str:
+        if device.remnawave_subscription_url:
+            return await self.remnawave_client.get_subscription(device.remnawave_subscription_url)
+        if device.remnawave_uuid:
+            username = device.remnawave_username or f"{device.title}-{device.public_id}"
+            return await self.remnawave_client.get_vless_config(remnawave_uuid=device.remnawave_uuid, email=username)
+        raise AccountError("Устройство еще не создано в Remnawave.")
 
     async def _generate_public_id(self) -> str:
         for _ in range(20):
@@ -147,7 +206,22 @@ class AccountService:
                 return public_id
         raise AccountError("Не удалось создать ID устройства. Попробуйте еще раз.")
 
+    async def _create_remnawave_device_user(self, user: User, public_id: str):
+        username = self._device_username(user, public_id)
+        try:
+            return await self.remnawave_client.add_user(
+                username=username,
+                days=self.settings.REMNA_DEFAULT_DAYS,
+                traffic_limit_bytes=self.settings.REMNA_TRAFFIC_LIMIT_BYTES,
+            )
+        except RemnawaveError as exc:
+            raise AccountError("Не удалось создать устройство в Remnawave. Попробуйте позже.") from exc
+
+    @staticmethod
+    def _device_username(user: User, public_id: str) -> str:
+        email_slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", user.email.lower()).strip("-")
+        return f"{email_slug}-{public_id}"[:120]
+
 
 def device_monthly_price_label() -> str:
     return f"{int(DEVICE_MONTHLY_PRICE_RUB)}Р"
-

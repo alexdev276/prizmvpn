@@ -31,9 +31,8 @@ def get_auth_service(
     session: AsyncSession = Depends(get_session),
     app_settings: Settings = Depends(get_app_settings),
     email_service: EmailService = Depends(get_email_service),
-    remnawave_client: RemnawaveClient = Depends(get_remnawave_client),
 ) -> AuthService:
-    return AuthService(session, app_settings, email_service, remnawave_client)
+    return AuthService(session, app_settings, email_service)
 
 
 def get_payment_service(
@@ -47,8 +46,9 @@ def get_payment_service(
 def get_account_service(
     session: AsyncSession = Depends(get_session),
     app_settings: Settings = Depends(get_app_settings),
+    remnawave_client: RemnawaveClient = Depends(get_remnawave_client),
 ) -> AccountService:
-    return AccountService(session, app_settings)
+    return AccountService(session, app_settings, remnawave_client)
 
 
 async def get_current_user(

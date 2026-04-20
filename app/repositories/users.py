@@ -86,21 +86,6 @@ class UserRepository:
         await self.session.flush()
         return user
 
-    async def attach_remnawave_user(
-        self,
-        user: User,
-        *,
-        remnawave_uuid: str,
-        days: int,
-        traffic_limit_bytes: int,
-    ) -> User:
-        user.remnawave_uuid = remnawave_uuid
-        user.subscription_end = utcnow() + timedelta(days=days)
-        user.traffic_limit_bytes = traffic_limit_bytes
-        user.updated_at = utcnow()
-        await self.session.flush()
-        return user
-
     async def extend_subscription(self, user: User, *, days: int, traffic_limit_bytes: int | None = None) -> User:
         current_end = as_utc(user.subscription_end) if user.subscription_end else None
         base = current_end if current_end and current_end > utcnow() else utcnow()

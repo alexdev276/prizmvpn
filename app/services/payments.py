@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models import Payment, User
+from app.repositories.devices import DeviceRepository
 from app.repositories.payments import PaymentRepository
 from app.repositories.transactions import TransactionRepository
 from app.repositories.users import UserRepository
@@ -55,6 +56,7 @@ class PaymentService:
         self.session = session
         self.settings = settings
         self.payments = PaymentRepository(session)
+        self.devices = DeviceRepository(session)
         self.users = UserRepository(session)
         self.transactions = TransactionRepository(session)
         self.remnawave_client = remnawave_client
@@ -306,9 +308,12 @@ class PaymentService:
         plan = self._get_plan(payment.plan_code)
         await self.payments.mark_paid(payment, raw_payload=payload)
         await self.users.extend_subscription(user, days=payment.subscription_days, traffic_limit_bytes=plan.traffic_limit_bytes)
-        if user.remnawave_uuid:
+        for device in await self.devices.list_active_for_user(user.id):
+            await self.devices.set_traffic_limit(device, plan.traffic_limit_bytes)
+            if not device.remnawave_uuid:
+                continue
             await self.remnawave_client.extend_user(
-                remnawave_uuid=user.remnawave_uuid,
+                remnawave_uuid=device.remnawave_uuid,
                 days=payment.subscription_days,
                 traffic_limit_bytes=plan.traffic_limit_bytes,
             )

@@ -13,6 +13,4 @@ class UserFactory(factory.Factory):
     email = factory.Sequence(lambda n: f"user{n}@example.com")
     hashed_password = factory.LazyFunction(lambda: hash_password("password123"))
     is_verified = True
-    remnawave_uuid = factory.Sequence(lambda n: f"remna-{n}")
     traffic_limit_bytes = 107374182400
-

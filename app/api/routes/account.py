@@ -8,15 +8,14 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_account_service, get_current_user, get_remnawave_client
+from app.api.deps import get_account_service, get_current_user
 from app.core.security import as_utc, utcnow
 from app.db.session import get_session
 from app.models import User
 from app.repositories.transactions import TransactionRepository
-from app.repositories.users import UserRepository
 from app.services.account import AccountError, AccountService, device_monthly_price_label
 from app.services.money import MIN_RUB_TOPUP, MIN_USDT_TOPUP_RUB, format_rub
-from app.services.remnawave import RemnawaveClient, RemnawaveError
+from app.services.remnawave import RemnawaveError
 from app.main_templates import templates
 
 router = APIRouter()
@@ -46,19 +45,10 @@ async def account(
     device_id: int | None = None,
     error: str | None = None,
     user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-    remnawave_client: RemnawaveClient = Depends(get_remnawave_client),
     account_service: AccountService = Depends(get_account_service),
 ):
     await account_service.bill_user_devices(user)
-    if user.remnawave_uuid:
-        try:
-            usage = await remnawave_client.get_user_usage(user.remnawave_uuid)
-            traffic_used = int(usage.get("trafficUsedBytes") or usage.get("usedTrafficBytes") or user.traffic_used)
-            await UserRepository(session).set_traffic_used(user, traffic_used)
-            await session.commit()
-        except (RemnawaveError, ValueError):
-            pass
+    await account_service.refresh_device_usage(user)
 
     device_views = await account_service.list_device_views(user)
     selected_device = next((view for view in device_views if view.device.id == device_id), None)
@@ -82,18 +72,9 @@ async def account(
 
 @router.get("/account/config")
 async def download_config(
-    user: User = Depends(get_current_user),
-    remnawave_client: RemnawaveClient = Depends(get_remnawave_client),
+    _user: User = Depends(get_current_user),
 ):
-    if not user.remnawave_uuid:
-        raise HTTPException(status_code=409, detail="Пользователь еще не создан в Remnawave.")
-    config = await remnawave_client.get_vless_config(remnawave_uuid=user.remnawave_uuid, email=user.email)
-    filename = f"prizm-{user.email.split('@')[0]}.txt"
-    return PlainTextResponse(
-        config,
-        media_type="text/plain; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+    raise HTTPException(status_code=410, detail="Конфигурации теперь привязаны к устройствам.")
 
 
 @router.get("/account/top-up")
@@ -188,4 +169,10 @@ async def public_device_config(
     device = await account_service.get_public_device(public_id, config_uuid)
     if not device:
         raise HTTPException(status_code=404, detail="Конфигурация не найдена.")
-    return PlainTextResponse(account_service.render_vless_config(device), media_type="text/plain; charset=utf-8")
+    try:
+        config = await account_service.render_device_config(device)
+    except AccountError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RemnawaveError as exc:
+        raise HTTPException(status_code=502, detail="Remnawave временно недоступен.") from exc
+    return PlainTextResponse(config, media_type="text/plain; charset=utf-8")

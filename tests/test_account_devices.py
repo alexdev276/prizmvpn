@@ -11,6 +11,7 @@ from app.models import User
 from app.repositories.transactions import TransactionRepository
 from app.services.account import AccountError, AccountService
 from app.services.money import DEVICE_HOURLY_PRICE_MICRORUB, rub_to_microrub
+from tests.fakes import FakeRemnawaveClient
 
 
 async def test_device_billing_and_delete_lock(db_session: AsyncSession) -> None:
@@ -23,8 +24,13 @@ async def test_device_billing_and_delete_lock(db_session: AsyncSession) -> None:
     db_session.add(user)
     await db_session.flush()
 
-    service = AccountService(db_session, settings)
+    fake_remna = FakeRemnawaveClient()
+    service = AccountService(db_session, settings, fake_remna)
     device = await service.add_device(user, title="IPhone 16")
+
+    assert device.remnawave_uuid == "remna-1"
+    assert fake_remna.created[0]["username"].startswith("device-example.com-")
+    assert fake_remna.created[0]["traffic_limit_bytes"] == settings.REMNA_TRAFFIC_LIMIT_BYTES
 
     with pytest.raises(AccountError):
         await service.delete_device(user, device.id)
@@ -39,4 +45,3 @@ async def test_device_billing_and_delete_lock(db_session: AsyncSession) -> None:
 
     transactions = await TransactionRepository(db_session).list_for_user(user.id)
     assert any(transaction.kind == "device_charge" for transaction in transactions)
-

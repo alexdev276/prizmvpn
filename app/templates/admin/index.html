@@ -8,7 +8,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>ID</th><th>Email</th><th>Email</th><th>Remnawave UUID</th><th>Подписка</th><th></th></tr>
+            <tr><th>ID</th><th>Email</th><th>Email</th><th>Подписка</th><th></th></tr>
           </thead>
           <tbody>
             {% for user in users %}
@@ -16,10 +16,9 @@
                 <td>{{ user.id }}</td>
                 <td>{{ user.email }}</td>
                 <td>{{ 'подтвержден' if user.is_verified else 'ожидает' }}</td>
-                <td>{{ user.remnawave_uuid or 'нет' }}</td>
                 <td>{{ user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'нет' }}</td>
                 <td>
-                  {% if not user.is_verified or not user.remnawave_uuid %}
+                  {% if not user.is_verified %}
                     <form method="post" action="/admin/users/{{ user.id }}/verify">
                       <button type="submit">Подтвердить</button>
                     </form>
@@ -56,4 +55,3 @@
     </section>
   </main>
 {% endblock %}
-

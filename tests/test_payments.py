@@ -8,8 +8,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import hash_password
-from app.models import User
+from app.core.security import hash_password, utcnow
+from app.models import Device, User
 from app.repositories.payments import PaymentRepository
 from app.services.money import rub_to_microrub
 from app.services.payments import PaymentError, PaymentService
@@ -35,10 +35,21 @@ async def test_yookassa_webhook_extends_subscription(
         email="paid@example.com",
         hashed_password=hash_password("password123"),
         is_verified=True,
-        remnawave_uuid="remna-paid",
         traffic_limit_bytes=0,
     )
     db_session.add(user)
+    await db_session.flush()
+    device = Device(
+        user_id=user.id,
+        public_id="1234567890",
+        title="IPhone 16",
+        config_uuid="config-1",
+        locked_until=utcnow(),
+        last_billed_at=utcnow(),
+        remnawave_uuid="remna-device-1",
+        remnawave_username="paid-example.com-1234567890",
+    )
+    db_session.add(device)
     await db_session.flush()
 
     payment = await PaymentRepository(db_session).create(
@@ -61,7 +72,8 @@ async def test_yookassa_webhook_extends_subscription(
     assert response.json() == {"ok": True, "payment_found": True}
     assert payment.status == "paid"
     assert user.subscription_end is not None
-    assert fake_remna.extended == [{"uuid": "remna-paid", "days": 30, "traffic_limit_bytes": 107374182400}]
+    assert device.traffic_limit_bytes == 107374182400
+    assert fake_remna.extended == [{"uuid": "remna-device-1", "days": 30, "traffic_limit_bytes": 107374182400}]
 
 
 async def test_test_topup_adds_balance(

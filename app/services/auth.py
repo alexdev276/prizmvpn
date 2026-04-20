@@ -18,7 +18,6 @@ from app.core.security import (
 from app.models import User
 from app.repositories.users import UserRepository
 from app.services.email import EmailService
-from app.services.remnawave import RemnawaveClient
 
 
 class AuthError(ValueError):
@@ -37,13 +36,11 @@ class AuthService:
         session: AsyncSession,
         settings: Settings,
         email_service: EmailService,
-        remnawave_client: RemnawaveClient,
     ) -> None:
         self.session = session
         self.settings = settings
         self.users = UserRepository(session)
         self.email_service = email_service
-        self.remnawave_client = remnawave_client
 
     async def register(self, *, email: str, password: str) -> RegistrationResult:
         email = email.strip().lower()
@@ -81,18 +78,6 @@ class AuthService:
             raise AuthError("Ссылка подтверждения недействительна или устарела.")
 
         await self.users.mark_verified(user)
-        if not user.remnawave_uuid:
-            remna_user = await self.remnawave_client.add_user(
-                username=user.email,
-                days=self.settings.REMNA_DEFAULT_DAYS,
-                traffic_limit_bytes=self.settings.REMNA_TRAFFIC_LIMIT_BYTES,
-            )
-            await self.users.attach_remnawave_user(
-                user,
-                remnawave_uuid=remna_user.uuid,
-                days=self.settings.REMNA_DEFAULT_DAYS,
-                traffic_limit_bytes=self.settings.REMNA_TRAFFIC_LIMIT_BYTES,
-            )
         await self.session.commit()
         return user
 

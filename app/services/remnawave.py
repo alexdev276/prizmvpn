@@ -20,6 +20,9 @@ class RemnawaveError(RuntimeError):
 @dataclass(frozen=True)
 class RemnawaveUser:
     uuid: str
+    username: str
+    short_uuid: str | None
+    subscription_url: str | None
     raw: dict
 
 
@@ -30,7 +33,14 @@ class RemnawaveClient:
     async def add_user(self, *, username: str, days: int, traffic_limit_bytes: int) -> RemnawaveUser:
         if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
             user_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"remnawave:{username}"))
-            return RemnawaveUser(uuid=user_uuid, raw={"uuid": user_uuid, "mock": True})
+            subscription_url = self.settings.REMNA_SUBSCRIPTION_PATH_TEMPLATE.format(uuid=user_uuid)
+            return RemnawaveUser(
+                uuid=user_uuid,
+                username=username,
+                short_uuid=None,
+                subscription_url=subscription_url,
+                raw={"uuid": user_uuid, "username": username, "subscriptionUrl": subscription_url, "mock": True},
+            )
 
         expire_at = (utcnow() + timedelta(days=days)).isoformat()
         payload = {
@@ -44,7 +54,17 @@ class RemnawaveClient:
         user_uuid = data.get("uuid") or data.get("id") or data.get("userUuid")
         if not user_uuid:
             raise RemnawaveError("Remnawave response does not contain user UUID")
-        return RemnawaveUser(uuid=str(user_uuid), raw=data)
+        short_uuid = data.get("shortUuid") or data.get("short_uuid")
+        subscription_url = self._extract_subscription_url(data)
+        if not subscription_url:
+            subscription_url = self.settings.REMNA_SUBSCRIPTION_PATH_TEMPLATE.format(uuid=short_uuid or user_uuid)
+        return RemnawaveUser(
+            uuid=str(user_uuid),
+            username=str(data.get("username") or username),
+            short_uuid=str(short_uuid) if short_uuid else None,
+            subscription_url=subscription_url,
+            raw=data,
+        )
 
     async def extend_user(self, *, remnawave_uuid: str, days: int, traffic_limit_bytes: int | None = None) -> None:
         if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
@@ -54,6 +74,11 @@ class RemnawaveClient:
         if traffic_limit_bytes is not None:
             payload["trafficLimitBytes"] = traffic_limit_bytes
         await self._request("PATCH", f"/api/users/{remnawave_uuid}", json=payload)
+
+    async def disable_user(self, remnawave_uuid: str) -> None:
+        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+            return
+        await self._request("PATCH", f"/api/users/{remnawave_uuid}", json={"status": "DISABLED"})
 
     async def get_user_usage(self, remnawave_uuid: str) -> dict:
         if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
@@ -68,6 +93,34 @@ class RemnawaveClient:
         path = self.settings.REMNA_SUBSCRIPTION_PATH_TEMPLATE.format(uuid=remnawave_uuid)
         text = await self._request_text("GET", path)
         return text.strip()
+
+    async def get_subscription(self, subscription_url: str) -> str:
+        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+            tag = quote(subscription_url.rsplit("/", 1)[-1] or "device")
+            return f"vless://{tag}@example.com:443?type=tcp&security=tls#{tag}"
+        if subscription_url.startswith(("http://", "https://")):
+            try:
+                async with httpx.AsyncClient(timeout=self.settings.REMNA_TIMEOUT_SECONDS) as client:
+                    response = await client.get(subscription_url)
+                    response.raise_for_status()
+                    return response.text.strip()
+            except (httpx.HTTPError, httpx.TimeoutException) as exc:
+                raise RemnawaveError(f"Remnawave subscription request failed: {exc}") from exc
+        return (await self._request_text("GET", subscription_url)).strip()
+
+    @staticmethod
+    def _extract_subscription_url(data: dict) -> str | None:
+        for key in ("subscriptionUrl", "subscription_url", "subUrl", "sub_url"):
+            value = data.get(key)
+            if value:
+                return str(value)
+        subscription = data.get("subscription")
+        if isinstance(subscription, dict):
+            for key in ("url", "subscriptionUrl", "subscription_url"):
+                value = subscription.get(key)
+                if value:
+                    return str(value)
+        return None
 
     async def _request(self, method: str, path: str, **kwargs) -> dict:
         data = await self._request_text(method, path, **kwargs)
