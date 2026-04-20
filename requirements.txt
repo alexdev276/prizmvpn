@@ -10,7 +10,6 @@ python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 bcrypt<4.1
 httpx>=0.27.0
-fastapi-mail>=1.4.1
 aiosmtplib>=3.0.0
 remnawave>=2.0.0; python_version < "3.14"
 pytest>=8.2.0

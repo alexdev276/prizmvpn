@@ -18,6 +18,11 @@ app.include_router(payments.router)
 app.include_router(admin.router)
 
 
+@app.get("/healthz", include_in_schema=False)
+async def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.exception_handler(HTTPException)
 async def html_auth_redirect(request: Request, exc: HTTPException):
     if exc.status_code == 401 and "text/html" in request.headers.get("accept", ""):

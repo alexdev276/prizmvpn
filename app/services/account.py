@@ -219,8 +219,10 @@ class AccountService:
 
     @staticmethod
     def _device_username(user: User, public_id: str) -> str:
-        email_slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", user.email.lower()).strip("-")
-        return f"{email_slug}-{public_id}"[:120]
+        email_slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", user.email.lower()).strip("-_")
+        max_prefix_length = max(3, 36 - len(public_id) - 1)
+        email_slug = email_slug[:max_prefix_length].strip("-_") or "user"
+        return f"{email_slug}-{public_id}"[:36]
 
 
 def device_monthly_price_label() -> str:

@@ -29,7 +29,7 @@ async def test_device_billing_and_delete_lock(db_session: AsyncSession) -> None:
     device = await service.add_device(user, title="IPhone 16")
 
     assert device.remnawave_uuid == "remna-1"
-    assert fake_remna.created[0]["username"].startswith("device-example.com-")
+    assert fake_remna.created[0]["username"].startswith("device-example-com-")
     assert fake_remna.created[0]["traffic_limit_bytes"] == settings.REMNA_TRAFFIC_LIMIT_BYTES
 
     with pytest.raises(AccountError):

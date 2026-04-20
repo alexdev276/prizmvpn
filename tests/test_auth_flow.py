@@ -44,7 +44,7 @@ async def test_register_confirm_and_login(
     add_device_response = await client.post("/account/devices", follow_redirects=False)
     assert add_device_response.status_code == 303
     assert len(fake_remna.created) == 1
-    assert fake_remna.created[0]["username"].startswith("person-example.com-")
+    assert fake_remna.created[0]["username"].startswith("person-example-com-")
 
     device_result = await db_session.execute(select(Device).where(Device.user_id == user.id))
     device = device_result.scalar_one()

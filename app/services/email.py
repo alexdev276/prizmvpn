@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import logging
+from email.message import EmailMessage
+from email.utils import formataddr
+
+import aiosmtplib
 
 from app.core.config import Settings
 
@@ -38,25 +42,23 @@ class EmailService:
             logger.info("SMTP is not configured. Email to %s: %s\n%s", email, subject, body)
             return
 
-        from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+        message = EmailMessage()
+        message["From"] = formataddr((self.settings.SMTP_FROM_NAME, self.settings.SMTP_FROM))
+        message["To"] = email
+        message["Subject"] = subject
+        message.set_content(body)
 
-        config = ConnectionConfig(
-            MAIL_USERNAME=self.settings.SMTP_USERNAME,
-            MAIL_PASSWORD=self.settings.SMTP_PASSWORD,
-            MAIL_FROM=self.settings.SMTP_FROM,
-            MAIL_FROM_NAME=self.settings.SMTP_FROM_NAME,
-            MAIL_PORT=self.settings.SMTP_PORT,
-            MAIL_SERVER=self.settings.SMTP_HOST,
-            MAIL_STARTTLS=self.settings.SMTP_STARTTLS,
-            MAIL_SSL_TLS=self.settings.SMTP_SSL_TLS,
-            USE_CREDENTIALS=bool(self.settings.SMTP_USERNAME and self.settings.SMTP_PASSWORD),
-            VALIDATE_CERTS=True,
-        )
-        message = MessageSchema(
-            subject=subject,
-            recipients=[email],
-            body=body,
-            subtype=MessageType.plain,
-        )
-        await FastMail(config).send_message(message)
+        smtp_options: dict[str, str] = {}
+        if self.settings.SMTP_USERNAME and self.settings.SMTP_PASSWORD:
+            smtp_options["username"] = self.settings.SMTP_USERNAME
+            smtp_options["password"] = self.settings.SMTP_PASSWORD
 
+        await aiosmtplib.send(
+            message,
+            hostname=self.settings.SMTP_HOST,
+            port=self.settings.SMTP_PORT,
+            start_tls=self.settings.SMTP_STARTTLS,
+            use_tls=self.settings.SMTP_SSL_TLS,
+            validate_certs=True,
+            **smtp_options,
+        )

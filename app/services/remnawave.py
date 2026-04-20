@@ -4,13 +4,13 @@ import asyncio
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 import httpx
 
 from app.core.config import Settings
-from app.core.security import utcnow
+from app.core.security import as_utc, utcnow
 
 
 class RemnawaveError(RuntimeError):
@@ -31,7 +31,7 @@ class RemnawaveClient:
         self.settings = settings
 
     async def add_user(self, *, username: str, days: int, traffic_limit_bytes: int) -> RemnawaveUser:
-        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+        if self.settings.REMNA_MOCK_MODE:
             user_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"remnawave:{username}"))
             subscription_url = self.settings.REMNA_SUBSCRIPTION_PATH_TEMPLATE.format(uuid=user_uuid)
             return RemnawaveUser(
@@ -42,15 +42,14 @@ class RemnawaveClient:
                 raw={"uuid": user_uuid, "username": username, "subscriptionUrl": subscription_url, "mock": True},
             )
 
-        expire_at = (utcnow() + timedelta(days=days)).isoformat()
+        expire_at = self._format_remna_datetime(utcnow() + timedelta(days=days))
         payload = {
             "username": username,
-            "days": days,
             "trafficLimitBytes": traffic_limit_bytes,
             "expireAt": expire_at,
             "status": "ACTIVE",
         }
-        data = await self._request("POST", "/api/users", json=payload)
+        data = self._response_payload(await self._request("POST", "/api/users", json=payload))
         user_uuid = data.get("uuid") or data.get("id") or data.get("userUuid")
         if not user_uuid:
             raise RemnawaveError("Remnawave response does not contain user UUID")
@@ -67,26 +66,34 @@ class RemnawaveClient:
         )
 
     async def extend_user(self, *, remnawave_uuid: str, days: int, traffic_limit_bytes: int | None = None) -> None:
-        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+        if self.settings.REMNA_MOCK_MODE:
             return
 
-        payload: dict[str, int] = {"days": days}
+        user = self._response_payload(await self._request("GET", f"/api/users/{remnawave_uuid}"))
+        base = self._parse_remna_datetime(user.get("expireAt") or user.get("expire_at"))
+        if not base or base < utcnow():
+            base = utcnow()
+
+        payload: dict[str, int | str] = {
+            "uuid": remnawave_uuid,
+            "expireAt": self._format_remna_datetime(base + timedelta(days=days)),
+        }
         if traffic_limit_bytes is not None:
             payload["trafficLimitBytes"] = traffic_limit_bytes
-        await self._request("PATCH", f"/api/users/{remnawave_uuid}", json=payload)
+        await self._request("PATCH", "/api/users", json=payload)
 
     async def disable_user(self, remnawave_uuid: str) -> None:
-        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+        if self.settings.REMNA_MOCK_MODE:
             return
-        await self._request("PATCH", f"/api/users/{remnawave_uuid}", json={"status": "DISABLED"})
+        await self._request("POST", f"/api/users/{remnawave_uuid}/actions/disable")
 
     async def get_user_usage(self, remnawave_uuid: str) -> dict:
-        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+        if self.settings.REMNA_MOCK_MODE:
             return {"trafficUsedBytes": 0}
-        return await self._request("GET", f"/api/users/{remnawave_uuid}")
+        return self._response_payload(await self._request("GET", f"/api/users/{remnawave_uuid}"))
 
     async def get_vless_config(self, *, remnawave_uuid: str, email: str) -> str:
-        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+        if self.settings.REMNA_MOCK_MODE:
             tag = quote(email)
             return f"vless://{remnawave_uuid}@example.com:443?type=tcp&security=tls#{tag}"
 
@@ -95,7 +102,7 @@ class RemnawaveClient:
         return text.strip()
 
     async def get_subscription(self, subscription_url: str) -> str:
-        if self.settings.REMNA_MOCK_MODE or not self.settings.REMNA_TOKEN:
+        if self.settings.REMNA_MOCK_MODE:
             tag = quote(subscription_url.rsplit("/", 1)[-1] or "device")
             return f"vless://{tag}@example.com:443?type=tcp&security=tls#{tag}"
         if subscription_url.startswith(("http://", "https://")):
@@ -122,6 +129,25 @@ class RemnawaveClient:
                     return str(value)
         return None
 
+    @staticmethod
+    def _response_payload(data: dict) -> dict:
+        response = data.get("response")
+        return response if isinstance(response, dict) else data
+
+    @staticmethod
+    def _format_remna_datetime(value: datetime) -> str:
+        return as_utc(value).isoformat().replace("+00:00", "Z")
+
+    @staticmethod
+    def _parse_remna_datetime(value: object) -> datetime | None:
+        if not isinstance(value, str) or not value:
+            return None
+        try:
+            normalized = value.replace("Z", "+00:00")
+            return as_utc(datetime.fromisoformat(normalized))
+        except ValueError:
+            return None
+
     async def _request(self, method: str, path: str, **kwargs) -> dict:
         data = await self._request_text(method, path, **kwargs)
         try:
@@ -130,6 +156,8 @@ class RemnawaveClient:
             raise RemnawaveError("Remnawave returned invalid JSON") from exc
 
     async def _request_text(self, method: str, path: str, **kwargs) -> str:
+        if not self.settings.REMNA_TOKEN:
+            raise RemnawaveError("REMNA_TOKEN is required when REMNA_MOCK_MODE=false")
         url = f"{self.settings.REMNA_BASE_URL.rstrip('/')}{path}"
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = f"Bearer {self.settings.REMNA_TOKEN}"

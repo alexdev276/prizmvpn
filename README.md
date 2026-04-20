@@ -66,3 +66,76 @@ pytest
 ```
 
 SMTP и Remnawave в тестах мокируются, реальные письма и внешние запросы не отправляются.
+
+## Деплой на пустой сервер
+
+Для one-server развертывания добавлен скрипт:
+
+```bash
+deploy/prizmvpn-deploy.sh
+```
+
+Что делает скрипт на Ubuntu/Debian сервере:
+
+- устанавливает Docker и Docker Compose plugin;
+- клонирует клиентскую часть из `https://github.com/alexdev276/prizmvpn.git`;
+- поднимает Remnawave Panel, PostgreSQL/Valkey для Remnawave, PostgreSQL для клиента, клиентское FastAPI-приложение и Caddy;
+- выпускает HTTPS-сертификаты через Caddy для `quantvpn.mooo.com` и `prizmvpn.space`;
+- соединяет клиент и Remnawave в одной Docker-сети: клиент ходит к панели по `http://remnawave:3000`;
+- создает helper-скрипты для установки Remnawave API token и Remnawave Node.
+
+На сервере:
+
+```bash
+scp deploy/prizmvpn-deploy.sh root@SERVER_IP:/root/
+ssh root@SERVER_IP
+bash /root/prizmvpn-deploy.sh
+```
+
+Перед запуском убедитесь, что A-записи доменов указывают на сервер:
+
+- `quantvpn.mooo.com` -> IP сервера;
+- `prizmvpn.space` -> IP сервера.
+
+После запуска:
+
+1. Откройте `https://quantvpn.mooo.com` и создайте первого администратора Remnawave.
+2. Создайте API token в Remnawave.
+3. Подключите клиентскую часть к панели:
+
+```bash
+sudo /opt/prizmvpn/bin/set-remna-token.sh <REMNA_API_TOKEN>
+```
+
+4. Добавьте Remnawave Node в панели. Если node будет на этом же сервере, используйте helper:
+
+```bash
+sudo /opt/prizmvpn/bin/install-remnanode.sh <SECRET_KEY_FROM_NODE_CARD>
+```
+
+Платежные ключи и SMTP можно передать в скрипт переменными окружения, например:
+
+```bash
+ADMIN_EMAILS=admin@prizmvpn.space \
+SMTP_HOST=smtp.example.com \
+SMTP_USERNAME=user \
+SMTP_PASSWORD=password \
+YOOKASSA_SHOP_ID=... \
+YOOKASSA_SECRET_KEY=... \
+bash /root/prizmvpn-deploy.sh
+```
+
+Если Caddy не стартует с ошибкой `Bind for 0.0.0.0:80 failed: port is already allocated`, значит на сервере уже запущен другой HTTP/HTTPS сервер. Проверьте:
+
+```bash
+sudo ss -ltnp 'sport = :80 or sport = :443'
+sudo docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
+```
+
+На пустом сервере обычно достаточно остановить лишний nginx/apache/caddy/traefik и повторить запуск:
+
+```bash
+sudo systemctl stop nginx apache2 caddy traefik 2>/dev/null || true
+sudo docker stop <container_name_using_80_or_443>
+bash /root/prizmvpn-deploy.sh
+```
