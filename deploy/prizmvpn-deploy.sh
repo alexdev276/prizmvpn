@@ -303,7 +303,7 @@ write_client_env() {
     set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_REFRESH_TOKEN ""
     set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_SAVE_TO_SENT_ITEMS "true"
 
-    set_env_value "$CLIENT_ENV" REMNA_BASE_URL "http://remnawave:3000"
+    set_env_value "$CLIENT_ENV" REMNA_BASE_URL "https://${PANEL_DOMAIN}"
     set_env_from_host_or_default "$CLIENT_ENV" REMNA_TOKEN ""
     set_env_value "$CLIENT_ENV" REMNA_MOCK_MODE "false"
     set_env_value "$CLIENT_ENV" REMNA_DEFAULT_DAYS "30"
