@@ -65,8 +65,8 @@ async def get_current_user(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Некорректная сессия.") from exc
     user = await UserRepository(session).get_by_id(user_id)
-    if not user or not user.is_verified:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется подтвержденный аккаунт.")
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется вход.")
     return user
 
 

@@ -33,8 +33,9 @@ class UserRepository:
         *,
         email: str,
         hashed_password: str,
-        verification_token_hash: str,
-        verification_token_expires: datetime,
+        verification_token_hash: str | None = None,
+        verification_token_expires: datetime | None = None,
+        is_verified: bool = False,
         is_admin: bool = False,
     ) -> User:
         user = User(
@@ -42,6 +43,7 @@ class UserRepository:
             hashed_password=hashed_password,
             verification_token_hash=verification_token_hash,
             verification_token_expires=verification_token_expires,
+            is_verified=is_verified,
             is_admin=is_admin,
         )
         self.session.add(user)

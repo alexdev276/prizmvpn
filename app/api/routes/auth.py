@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
@@ -40,12 +42,12 @@ async def register(
             {"error": str(exc), "email": email},
             status_code=400,
         )
-    return RedirectResponse(f"/check-email?email={email}", status_code=303)
+    return RedirectResponse(f"/login?registered=1&email={quote(email)}", status_code=303)
 
 
 @router.get("/check-email")
 async def check_email(request: Request, email: str = ""):
-    return templates.TemplateResponse(request, "auth/check_email.html", {"email": email})
+    return RedirectResponse(f"/login?registered=1&email={quote(email)}", status_code=303)
 
 
 @router.get("/verify-email")
@@ -67,8 +69,8 @@ async def verify_email(request: Request, token: str, auth_service: AuthService =
 
 
 @router.get("/login")
-async def login_form(request: Request):
-    return templates.TemplateResponse(request, "auth/login.html")
+async def login_form(request: Request, registered: bool = False, email: str = ""):
+    return templates.TemplateResponse(request, "auth/login.html", {"registered": registered, "email": email})
 
 
 @router.post("/login")

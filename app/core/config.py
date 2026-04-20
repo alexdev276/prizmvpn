@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     SMTP_STARTTLS: bool = True
     SMTP_SSL_TLS: bool = False
 
+    EMAIL_PROVIDER: str = "smtp"
+    MS_GRAPH_TENANT: str = "consumers"
+    MS_GRAPH_CLIENT_ID: str = ""
+    MS_GRAPH_CLIENT_SECRET: str = ""
+    MS_GRAPH_REFRESH_TOKEN: str = ""
+    MS_GRAPH_SAVE_TO_SENT_ITEMS: bool = True
+    MS_GRAPH_TIMEOUT_SECONDS: float = 10.0
+
     REMNA_BASE_URL: str = "http://localhost:3000"
     REMNA_TOKEN: str = ""
     REMNA_TIMEOUT_SECONDS: float = 10.0
@@ -66,4 +74,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import secrets
 import re
 import uuid
@@ -16,6 +17,9 @@ from app.repositories.transactions import TransactionRepository
 from app.repositories.users import UserRepository
 from app.services.money import DEVICE_HOURLY_PRICE_MICRORUB, DEVICE_MONTHLY_PRICE_RUB
 from app.services.remnawave import RemnawaveClient, RemnawaveError
+
+
+logger = logging.getLogger(__name__)
 
 
 class AccountError(ValueError):
@@ -215,6 +219,12 @@ class AccountService:
                 traffic_limit_bytes=self.settings.REMNA_TRAFFIC_LIMIT_BYTES,
             )
         except RemnawaveError as exc:
+            logger.exception(
+                "Failed to create Remnawave device user. app_user_id=%s public_id=%s remnawave_username=%s",
+                user.id,
+                public_id,
+                username,
+            )
             raise AccountError("Не удалось создать устройство в Remnawave. Попробуйте позже.") from exc
 
     @staticmethod

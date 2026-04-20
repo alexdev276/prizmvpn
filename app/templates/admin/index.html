@@ -8,22 +8,15 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>ID</th><th>Email</th><th>Email</th><th>Подписка</th><th></th></tr>
+            <tr><th>ID</th><th>Email</th><th>Статус</th><th>Подписка</th></tr>
           </thead>
           <tbody>
             {% for user in users %}
               <tr>
                 <td>{{ user.id }}</td>
                 <td>{{ user.email }}</td>
-                <td>{{ 'подтвержден' if user.is_verified else 'ожидает' }}</td>
+                <td>активен</td>
                 <td>{{ user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'нет' }}</td>
-                <td>
-                  {% if not user.is_verified %}
-                    <form method="post" action="/admin/users/{{ user.id }}/verify">
-                      <button type="submit">Подтвердить</button>
-                    </form>
-                  {% endif %}
-                </td>
               </tr>
             {% endfor %}
           </tbody>

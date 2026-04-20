@@ -296,6 +296,12 @@ write_client_env() {
     set_env_from_host_or_default "$CLIENT_ENV" SMTP_FROM_NAME "Prizm VPN"
     set_env_from_host_or_default "$CLIENT_ENV" SMTP_STARTTLS "true"
     set_env_from_host_or_default "$CLIENT_ENV" SMTP_SSL_TLS "false"
+    set_env_from_host_or_default "$CLIENT_ENV" EMAIL_PROVIDER "smtp"
+    set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_TENANT "consumers"
+    set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_CLIENT_ID ""
+    set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_CLIENT_SECRET ""
+    set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_REFRESH_TOKEN ""
+    set_env_from_host_or_default "$CLIENT_ENV" MS_GRAPH_SAVE_TO_SENT_ITEMS "true"
 
     set_env_value "$CLIENT_ENV" REMNA_BASE_URL "http://remnawave:3000"
     set_env_from_host_or_default "$CLIENT_ENV" REMNA_TOKEN ""

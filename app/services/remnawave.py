@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -11,6 +12,9 @@ import httpx
 
 from app.core.config import Settings
 from app.core.security import as_utc, utcnow
+
+
+logger = logging.getLogger(__name__)
 
 
 class RemnawaveError(RuntimeError):
@@ -169,6 +173,19 @@ class RemnawaveClient:
                     response = await client.request(method, url, headers=headers, **kwargs)
                     response.raise_for_status()
                     return response.text
+            except httpx.HTTPStatusError as exc:
+                body = exc.response.text[:1000]
+                logger.warning(
+                    "Remnawave %s %s failed with HTTP %s: %s",
+                    method,
+                    path,
+                    exc.response.status_code,
+                    body,
+                )
+                last_error = RemnawaveError(
+                    f"Remnawave {method} {path} returned HTTP {exc.response.status_code}: {body}"
+                )
+                break
             except (httpx.HTTPError, httpx.TimeoutException) as exc:
                 last_error = exc
                 if attempt >= self.settings.REMNA_RETRIES:

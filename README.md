@@ -1,6 +1,6 @@
 # Prizm VPN Client
 
-FastAPI-клиент для VPN-сервиса поверх Remnawave: регистрация с подтверждением email, вход, сброс пароля, личный кабинет, баланс, устройства, VLESS-конфигурации, платежи YooKassa/CryptoCloud и простая админ-панель.
+FastAPI-клиент для VPN-сервиса поверх Remnawave: регистрация по email и паролю без обязательного подтверждения, вход, сброс пароля, личный кабинет, баланс, устройства, VLESS-конфигурации, платежи YooKassa/CryptoCloud и простая админ-панель.
 
 ## Запуск
 
@@ -36,7 +36,7 @@ uvicorn app.main:app --reload
 
 ## Remnawave
 
-По умолчанию `REMNA_MOCK_MODE=true`, чтобы локально проверить регистрацию, email flow и кабинет без реальной панели. Для боевого режима задайте:
+По умолчанию `REMNA_MOCK_MODE=true`, чтобы локально проверить регистрацию, вход и кабинет без реальной панели. Для боевого режима задайте:
 
 ```env
 REMNA_MOCK_MODE=false
@@ -44,7 +44,7 @@ REMNA_BASE_URL=https://your-remnawave-panel.example
 REMNA_TOKEN=...
 ```
 
-Подтверждение email активирует только аккаунт на клиентском сайте. Каждый новый пункт в разделе "Устройства" создает отдельного пользователя в Remnawave с username вида `{email}-{device_id}` и сохраняет его `uuid`/subscription URL в записи устройства. Для устройств в кабинете генерируются отдельные subscription-ссылки вида `/subscription/{public_id}/{config_uuid}.txt`; кнопку "Заменить настройки устройства" можно использовать для обновления ссылки.
+Регистрация сразу активирует аккаунт на клиентском сайте. Каждый новый пункт в разделе "Устройства" создает отдельного пользователя в Remnawave с username вида `{email}-{device_id}` и сохраняет его `uuid`/subscription URL в записи устройства. Для устройств в кабинете генерируются отдельные subscription-ссылки вида `/subscription/{public_id}/{config_uuid}.txt`; кнопку "Заменить настройки устройства" можно использовать для обновления ссылки.
 
 ## Кабинет
 
@@ -139,3 +139,49 @@ sudo systemctl stop nginx apache2 caddy traefik 2>/dev/null || true
 sudo docker stop <container_name_using_80_or_443>
 bash /root/prizmvpn-deploy.sh
 ```
+
+## Отправка писем через Outlook Microsoft Graph
+
+Если обычный Outlook SMTP возвращает `SmtpClientAuthentication is disabled for the Mailbox`, используйте Microsoft Graph OAuth вместо SMTP.
+
+1. Создайте приложение в Microsoft Entra:
+
+- откройте `https://entra.microsoft.com`;
+- `Applications` -> `App registrations` -> `New registration`;
+- для личного Outlook выберите аккаунты Microsoft personal, если этот вариант доступен, или режим с personal Microsoft accounts;
+- скопируйте `Application (client) ID`;
+- в `API permissions` добавьте Microsoft Graph delegated permission `Mail.Send`;
+- в `Authentication` включите `Allow public client flows`.
+
+2. Получите refresh token на сервере:
+
+```bash
+cd /opt/prizmvpn/client
+sudo python3 scripts/ms_graph_oauth.py \
+  --client-id <APPLICATION_CLIENT_ID> \
+  --tenant consumers \
+  --write-env /opt/prizmvpn/env/prizmvpn.env
+```
+
+Скрипт покажет код и ссылку Microsoft. Откройте ссылку, войдите в Outlook-аккаунт отправителя и подтвердите доступ.
+
+3. Пересоздайте контейнер клиента:
+
+```bash
+cd /opt/prizmvpn
+sudo docker compose up -d --force-recreate prizmvpn-client
+sudo docker compose logs -f --tail=100 prizmvpn-client
+```
+
+В env-файле это выглядит так:
+
+```env
+EMAIL_PROVIDER=graph
+MS_GRAPH_TENANT=consumers
+MS_GRAPH_CLIENT_ID=<APPLICATION_CLIENT_ID>
+MS_GRAPH_REFRESH_TOKEN=<REFRESH_TOKEN_FROM_SCRIPT>
+MS_GRAPH_SAVE_TO_SENT_ITEMS=true
+SMTP_FROM_NAME=Prizm VPN
+```
+
+Для бизнес-аккаунта Microsoft 365 вместо `consumers` можно использовать `organizations` или tenant ID.

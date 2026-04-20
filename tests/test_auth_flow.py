@@ -8,7 +8,7 @@ from app.models import Device, User
 from tests.fakes import FakeEmailService, FakeRemnawaveClient
 
 
-async def test_register_confirm_and_login(
+async def test_register_and_login_without_email_confirmation(
     client: AsyncClient,
     db_session: AsyncSession,
     fake_email: FakeEmailService,
@@ -20,11 +20,8 @@ async def test_register_confirm_and_login(
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert len(fake_email.verification_tokens) == 1
-
-    _, token = fake_email.verification_tokens[0]
-    verify_response = await client.get(f"/verify-email?token={token}")
-    assert verify_response.status_code == 200
+    assert response.headers["location"] == "/login?registered=1&email=person%40example.com"
+    assert fake_email.verification_tokens == []
     assert fake_remna.created == []
 
     result = await db_session.execute(select(User).where(User.email == "person@example.com"))
@@ -60,8 +57,6 @@ async def test_password_reset_flow(
     fake_email: FakeEmailService,
 ) -> None:
     await client.post("/register", data={"email": "reset@example.com", "password": "password123"})
-    _, verify_token = fake_email.verification_tokens[-1]
-    await client.get(f"/verify-email?token={verify_token}")
 
     response = await client.post("/forgot-password", data={"email": "reset@example.com"})
     assert response.status_code == 200
