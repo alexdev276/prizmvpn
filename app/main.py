@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import admin, auth, dashboard, pages, payments
+from app.api.routes import account, admin, auth, pages, payments
 from app.core.config import settings
 
 
@@ -13,7 +13,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(pages.router)
 app.include_router(auth.router)
-app.include_router(dashboard.router)
+app.include_router(account.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
 

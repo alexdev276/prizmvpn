@@ -90,7 +90,7 @@ async def login(
             {"error": str(exc), "email": email},
             status_code=400,
         )
-    response = RedirectResponse("/dashboard", status_code=303)
+    response = RedirectResponse("/account", status_code=303)
     response.set_cookie(
         app_settings.SESSION_COOKIE_NAME,
         token,

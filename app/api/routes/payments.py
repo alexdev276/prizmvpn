@@ -54,7 +54,7 @@ async def top_up_yookassa(
             raise PaymentError(f"Минимальная сумма пополнения {int(MIN_RUB_TOPUP)}Р.")
         started = await payment_service.start_yookassa_topup(user=user, amount_rub=amount_rub)
     except (PaymentError, ValueError) as exc:
-        return RedirectResponse(f"/dashboard/top-up?amount={quote(amount)}&error={quote(str(exc))}", status_code=303)
+        return RedirectResponse(f"/account/top-up?amount={quote(amount)}&error={quote(str(exc))}", status_code=303)
     return RedirectResponse(started.confirmation_url, status_code=303)
 
 
@@ -70,7 +70,7 @@ async def top_up_cryptocloud(
             raise PaymentError(f"Минимальная сумма пополнения {int(MIN_USDT_TOPUP_RUB)}Р.")
         started = await payment_service.start_cryptocloud_topup(user=user, amount_rub=amount_rub)
     except (PaymentError, ValueError) as exc:
-        return RedirectResponse(f"/dashboard/top-up?amount={quote(amount)}&error={quote(str(exc))}", status_code=303)
+        return RedirectResponse(f"/account/top-up?amount={quote(amount)}&error={quote(str(exc))}", status_code=303)
     return RedirectResponse(started.confirmation_url, status_code=303)
 
 
@@ -107,4 +107,4 @@ async def test_success(
     payment_service: PaymentService = Depends(get_payment_service),
 ):
     await payment_service.mark_test_payment_paid(provider=provider, provider_payment_id=id)
-    return RedirectResponse("/dashboard", status_code=303)
+    return RedirectResponse("/account", status_code=303)

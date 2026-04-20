@@ -39,8 +39,8 @@ def subscription_status(subscription_end: datetime | None) -> str:
     return "Активна" if as_utc(subscription_end) > utcnow() else "Истекла"
 
 
-@router.get("/dashboard")
-async def dashboard(
+@router.get("/account")
+async def account(
     request: Request,
     modal: str | None = None,
     device_id: int | None = None,
@@ -64,7 +64,7 @@ async def dashboard(
     selected_device = next((view for view in device_views if view.device.id == device_id), None)
     return templates.TemplateResponse(
         request,
-        "dashboard.html",
+        "account.html",
         {
             "user": user,
             "devices": device_views,
@@ -80,7 +80,7 @@ async def dashboard(
     )
 
 
-@router.get("/dashboard/config")
+@router.get("/account/config")
 async def download_config(
     user: User = Depends(get_current_user),
     remnawave_client: RemnawaveClient = Depends(get_remnawave_client),
@@ -96,7 +96,7 @@ async def download_config(
     )
 
 
-@router.get("/dashboard/top-up")
+@router.get("/account/top-up")
 async def top_up_page(
     request: Request,
     amount: str = "150",
@@ -119,7 +119,7 @@ async def top_up_page(
     )
 
 
-@router.get("/dashboard/history")
+@router.get("/account/history")
 async def history_page(
     request: Request,
     user: User = Depends(get_current_user),
@@ -140,7 +140,7 @@ async def history_page(
     )
 
 
-@router.post("/dashboard/devices")
+@router.post("/account/devices")
 async def add_device(
     title: str = Form("IPhone 16"),
     user: User = Depends(get_current_user),
@@ -149,11 +149,11 @@ async def add_device(
     try:
         device = await account_service.add_device(user, title=title)
     except AccountError as exc:
-        return RedirectResponse(f"/dashboard?modal=add&error={quote(str(exc))}", status_code=303)
-    return RedirectResponse(f"/dashboard?device_id={device.id}", status_code=303)
+        return RedirectResponse(f"/account?modal=add&error={quote(str(exc))}", status_code=303)
+    return RedirectResponse(f"/account?device_id={device.id}", status_code=303)
 
 
-@router.post("/dashboard/devices/{device_id}/replace")
+@router.post("/account/devices/{device_id}/replace")
 async def replace_device(
     device_id: int,
     user: User = Depends(get_current_user),
@@ -162,11 +162,11 @@ async def replace_device(
     try:
         device = await account_service.replace_device_config(user, device_id)
     except AccountError as exc:
-        return RedirectResponse(f"/dashboard?error={quote(str(exc))}", status_code=303)
-    return RedirectResponse(f"/dashboard?device_id={device.id}", status_code=303)
+        return RedirectResponse(f"/account?error={quote(str(exc))}", status_code=303)
+    return RedirectResponse(f"/account?device_id={device.id}", status_code=303)
 
 
-@router.post("/dashboard/devices/{device_id}/delete")
+@router.post("/account/devices/{device_id}/delete")
 async def delete_device(
     device_id: int,
     user: User = Depends(get_current_user),
@@ -175,8 +175,8 @@ async def delete_device(
     try:
         await account_service.delete_device(user, device_id)
     except AccountError as exc:
-        return RedirectResponse(f"/dashboard?error={quote(str(exc))}", status_code=303)
-    return RedirectResponse("/dashboard", status_code=303)
+        return RedirectResponse(f"/account?error={quote(str(exc))}", status_code=303)
+    return RedirectResponse("/account", status_code=303)
 
 
 @router.get("/subscription/{public_id}/{config_uuid}.txt")

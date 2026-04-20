@@ -519,7 +519,7 @@ table {
     width: min(100% - 48px, 760px);
   }
 
-  .dashboard-layout {
+  .account-layout {
     display: grid;
     grid-template-columns: 0.8fr 1.2fr;
     gap: 34px;

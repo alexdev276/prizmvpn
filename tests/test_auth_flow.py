@@ -38,6 +38,7 @@ async def test_register_confirm_and_login(
         follow_redirects=False,
     )
     assert login_response.status_code == 303
+    assert login_response.headers["location"] == "/account"
     assert "prizm_session" in login_response.cookies
 
 

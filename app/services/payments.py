@@ -78,7 +78,7 @@ class PaymentService:
         payload = {
             "amount": {"value": str(amount_rub), "currency": "RUB"},
             "capture": True,
-            "confirmation": {"type": "redirect", "return_url": f"{self.settings.BASE_URL}/dashboard"},
+            "confirmation": {"type": "redirect", "return_url": f"{self.settings.BASE_URL}/account"},
             "description": "Prizm VPN: пополнение баланса",
             "metadata": {"user_id": str(user.id), "plan_code": "balance"},
         }
@@ -169,7 +169,7 @@ class PaymentService:
         payload = {
             "amount": {"value": str(plan.amount_rub), "currency": "RUB"},
             "capture": True,
-            "confirmation": {"type": "redirect", "return_url": f"{self.settings.BASE_URL}/dashboard"},
+            "confirmation": {"type": "redirect", "return_url": f"{self.settings.BASE_URL}/account"},
             "description": f"Prizm VPN: {plan.title}",
             "metadata": {"user_id": str(user.id), "plan_code": plan.code},
         }

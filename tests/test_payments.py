@@ -93,5 +93,6 @@ async def test_test_topup_adds_balance(
     )
 
     assert response.status_code == 303
+    assert response.headers["location"] == "/account"
     assert payment.status == "paid"
     assert user.balance_microrub == rub_to_microrub(Decimal("150.00"))

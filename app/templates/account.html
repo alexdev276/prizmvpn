@@ -12,17 +12,17 @@
       <p class="error">{{ error }}</p>
     {% endif %}
 
-    <div class="dashboard-layout">
+    <div class="account-layout">
       <section>
         <div class="action-grid">
-          <a class="button big" href="/dashboard/top-up"><span class="plus-icon">+</span>Пополнить</a>
-          <a class="button big" href="/dashboard/history">История</a>
+          <a class="button big" href="/account/top-up"><span class="plus-icon">+</span>Пополнить</a>
+          <a class="button big" href="/account/history">История</a>
         </div>
 
         <section class="devices-section">
           <div class="section-title-row">
             <h1 class="section-title">Устройства</h1>
-            <a class="button" href="/dashboard?modal=add">Добавить</a>
+            <a class="button" href="/account?modal=add">Добавить</a>
           </div>
           <p class="section-subtitle">Тариф: {{ device_price }}/устройство</p>
 
@@ -32,8 +32,8 @@
                 <p class="device-id">ID: {{ view.device.public_id }}</p>
                 <p class="device-name">{{ view.device.title }}</p>
                 <div class="device-actions">
-                  <a class="button" href="/dashboard?device_id={{ view.device.id }}">Настройки</a>
-                  <form method="post" action="/dashboard/devices/{{ view.device.id }}/delete">
+                  <a class="button" href="/account?device_id={{ view.device.id }}">Настройки</a>
+                  <form method="post" action="/account/devices/{{ view.device.id }}/delete">
                     <button type="submit" {% if not view.can_delete %}title="Удаление будет доступно через 24 часа после добавления"{% endif %}>Удалить</button>
                   </form>
                 </div>
@@ -66,9 +66,9 @@
       <section class="modal-panel">
         <h2>Добавление устройства</h2>
         <p class="modal-text">Стоимость 100 Р/мес за каждое дополнительное устройство. Вы сможете удалить это устройство через 24 часа.</p>
-        <form class="modal-actions" method="post" action="/dashboard/devices">
+        <form class="modal-actions" method="post" action="/account/devices">
           <button class="primary full" type="submit">Добавить</button>
-          <a class="button full" href="/dashboard">Назад</a>
+          <a class="button full" href="/account">Назад</a>
         </form>
       </section>
     </div>
@@ -82,13 +82,12 @@
         <p class="device-name">{{ selected_device.device.title }}</p>
         <p class="config-text">{{ selected_device.config_link }}</p>
         <div class="modal-actions">
-          <form method="post" action="/dashboard/devices/{{ selected_device.device.id }}/replace">
+          <form method="post" action="/account/devices/{{ selected_device.device.id }}/replace">
             <button class="full" type="submit">Заменить настройки устройства</button>
           </form>
-          <a class="button primary full" href="/dashboard">Назад</a>
+          <a class="button primary full" href="/account">Назад</a>
         </div>
       </section>
     </div>
   {% endif %}
 {% endblock %}
-
